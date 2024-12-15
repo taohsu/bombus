@@ -50,7 +50,7 @@ def llm_api(prompt):
     """
     调用LLM chat API endpoint
     """
-    url = 'http://39.153.220.86:5000/agent/chat'
+    url = st.secrets.API_URL
     headers = {
         'Content-Type': 'application/json'
     }
