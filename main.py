@@ -342,7 +342,7 @@ st.markdown("""
     .date-text {
         color: #666;
         font-size: 1rem;
-        margin-bottom: -16px;
+        margin-bottom: 0;
     }
 
     .title-text {
