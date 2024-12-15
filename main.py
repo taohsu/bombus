@@ -72,7 +72,7 @@ def render_content_section(date_str, title, content, show_button=True):
         card_html = f"""
         <div class="card-container">
             <p class="date-text">{date_str}</p>
-            <h4 class="title-text">{title}</h4>
+            <h5 class="title-text">{title}</h5>
             <p class="content-text">{content}</p>
         </div>
         """
