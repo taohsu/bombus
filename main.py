@@ -1,9 +1,7 @@
-from dotenv import load_dotenv
 import streamlit as st
 from datetime import datetime, date
 import requests
 import json
-load_dotenv()
 
 # Initialize session state for screen management
 if 'current_screen' not in st.session_state:
