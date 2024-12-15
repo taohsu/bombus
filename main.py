@@ -22,10 +22,10 @@ def switch_to_main():
 # 提取llm回答
 def extract_final_answer(response):
     """
-    从响应中提取Final Answer后的内容
+    提取Final Answer
 
     Args:
-        response (dict): API响应的JSON数据
+        response (dict): 提取JSON数据
 
     Returns:
         str: Final Answer后的内容
@@ -46,7 +46,7 @@ def extract_final_answer(response):
 # 接口
 def llm_api(prompt):
     """
-    调用LLM chat API endpoint
+    调用API
     """
     url = st.secrets.API_URL
     headers = {
@@ -66,9 +66,8 @@ def llm_api(prompt):
 
 
 def render_content_section(date_str, title, content, show_button=True):
-    # 使用一个 st.container() 包裹整个卡片
+    # 卡片容器
     with st.container():
-        # 将卡片内容放进单个的HTML结构中，通过一次st.markdown()输出
         card_html = f"""
         <div class="card-container">
             <p class="date-text">{date_str}</p>
@@ -78,14 +77,13 @@ def render_content_section(date_str, title, content, show_button=True):
         """
         st.markdown(card_html, unsafe_allow_html=True)
 
-        # 在同一container内放置按钮（这会新增一个element-container，但只有一个额外容器）
         st.button("向Agromind提问", on_click=switch_to_question, key=f"button_{title}", use_container_width=True)
 
 
-# Configure the page layout
+# page layout
 st.set_page_config(layout="wide")
 
-# Custom CSS for header, sidebar, and cards
+# CSS
 st.markdown("""
     <style>
     .reportview-container .main .block-container {
@@ -379,17 +377,17 @@ st.markdown("""
         color: white !important;
         transform: translateY(1px) !important;
     }
-    /* 在question页面隐藏sidebar和按钮 */
+    /* hide sidebar in question page */
     .question-page [data-testid="stSidebarNav"] {
         display: none !important;
     }
 
-    /* 隐藏展开/收起按钮 */
+    /* hide sidebar entry */
     .question-page button[kind="header"] {
         display: none !important;
     }
 
-    /* 确保sidebar完全隐藏 */
+    /* hide sidebar */
     .question-page section[data-testid="stSidebar"] {
         display: none !important;
         width: 0px !important;
@@ -400,19 +398,16 @@ st.markdown("""
         visibility: hidden !important;
     }
 
-    /* 在question页面调整主内容区域 */
     .question-page .main .block-container {
         padding-left: 0rem !important;
         padding-right: 0rem !important;
         max-width: 100% !important;
     }
-    /* 去除所有element-container的额外间距 */
     div[data-testid="stElementContainer"] {
         margin: 0 !important;
         padding: 0 !important;
     }
 
-    /* 针对卡片容器添加所需样式(背景、边框、阴影等) */
     .card-container {
     }
 
@@ -420,7 +415,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 根据当前页面添加对应的CSS类
+
 if st.session_state.current_screen == 'question':
     st.markdown('''
         <script>
@@ -434,7 +429,7 @@ else:
         </script>
     ''', unsafe_allow_html=True)
 
-# Sidebar content - 只在main页面显示
+
 if st.session_state.current_screen == 'main':
     with st.sidebar:
         st.image("logo.png", use_container_width=True)
@@ -449,13 +444,13 @@ if st.session_state.current_screen == 'main':
         st.markdown("---")
         st.caption("Version 1.0")
 
-# Create the fixed header
+
 st.markdown("""
     <div class="fixed-header">
     </div>
 """, unsafe_allow_html=True)
 
-# Add the date picker only in main screen
+
 if st.session_state.current_screen == 'main':
     selected_date = st.date_input(
         "",
@@ -464,13 +459,13 @@ if st.session_state.current_screen == 'main':
         value=datetime.now().date()
     )
 else:
-    # When in question screen, use today's date
+    # 使用当前时间
     selected_date = datetime.now().date()
 
-# Main content container
+# content wrapper
 st.markdown('<div class="content-wrapper">', unsafe_allow_html=True)
 
-# Format the date according to user selection
+# 日期类型
 date_formats = {
     "MM/DD/YYYY": "%m/%d/%Y",
     "DD/MM/YYYY": "%d/%m/%Y",
@@ -512,29 +507,29 @@ elif st.session_state.current_screen == 'question':
     if st.button("返回", on_click=switch_to_main):
         st.session_state.current_screen = 'main'
 
-    # Display chat interface
-    # 显示聊天历史
+    # chat
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-    # 接收用户输入
+    # user query
     if user_query := st.chat_input("请输入您的问题"):
-        # 添加用户消息到聊天历史
+        # add message to session_state
         st.session_state.messages.append({"role": "user", "content": user_query})
 
-        # 显示用户消息
+        # user message display
         with st.chat_message("user"):
             st.markdown(user_query)
 
-        # 获取AI响应
+        # AI message
         with st.chat_message("assistant"):
             response = llm_api(user_query)
             if response:
                 llm_response = extract_final_answer(response)
                 st.markdown(llm_response)
-                # 添加助手响应到聊天历史
+                # add AI message to session_state
                 st.session_state.messages.append({"role": "assistant", "content": llm_response})
 
 if __name__ == "__main__":
-    st.markdown('</div>', unsafe_allow_html=True)  # Close content-wrapper div
+    # Close content-wrapper div
+    st.markdown('</div>', unsafe_allow_html=True)
