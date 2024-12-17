@@ -2,6 +2,8 @@ import streamlit as st
 from datetime import datetime, date
 import requests
 import json
+import datetime
+import uuid
 
 # Initialize session state for screen management
 if 'current_screen' not in st.session_state:
@@ -66,6 +68,7 @@ def llm_api(prompt):
 
 
 def render_content_section(date_str, title, content, show_button=True):
+    unique_key = str(uuid.uuid4())[:8]
     # 卡片容器
     with st.container():
         card_html = f"""
@@ -77,7 +80,33 @@ def render_content_section(date_str, title, content, show_button=True):
         """
         st.markdown(card_html, unsafe_allow_html=True)
 
-        st.button("向Agromind提问", on_click=switch_to_question, key=f"button_{title}", use_container_width=True)
+        if show_button:
+            st.button("向Agromind提问",
+                      on_click=switch_to_question,
+                      key=unique_key,  # 使用组合的唯一 key
+                      use_container_width=True)
+
+# 列表接口
+def list_api(start_date, end_date):
+    url = f"http://39.101.77.102:8000/conclusion/{start_date}/{end_date}"
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        st.error(f"API请求错误: {e}")
+        return None
+
+contents = []
+# 列表内容
+def list_contents(api_data):
+    for item in api_data:
+        contents.append({
+            "range": item['range'],
+            "title": item["title"],
+            "content": item["content"]
+        })
+    return contents
 
 
 # page layout
@@ -450,56 +479,63 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
+# 设置date_input默认数值
+today = datetime.datetime.now().date()
+seven_days_ago = today - datetime.timedelta(days=7)
+min_date = datetime.date(2023, 1, 1)
 
 if st.session_state.current_screen == 'main':
     selected_date = st.date_input(
         "",
-        min_value=date(2020, 1, 1),
-        max_value=date(2025, 12, 31),
-        value=datetime.now().date()
+        (seven_days_ago, today),
+        min_value=min_date,
+        max_value=today,
+        format="YYYY.MM.DD",
     )
+    if isinstance(selected_date, tuple) and len(selected_date) == 2:
+        selected_start_date = f"{selected_date[0].year}-{selected_date[0].month}-{selected_date[0].day}"
+        selected_end_date = f"{selected_date[1].year}-{selected_date[1].month}-{selected_date[1].day}"
+
+        api_data = list_api(selected_start_date, selected_end_date)
+        contents = list_contents(api_data)
+
 else:
     # 使用当前时间
     selected_date = datetime.now().date()
 
+
+
+
 # content wrapper
 st.markdown('<div class="content-wrapper">', unsafe_allow_html=True)
 
-# 日期类型
-date_formats = {
-    "MM/DD/YYYY": "%m/%d/%Y",
-    "DD/MM/YYYY": "%d/%m/%Y",
-    "YYYY-MM-DD": "%Y-%m-%d"
-}
-formatted_date = selected_date.strftime(date_formats.get(st.session_state.get('display_format', "YYYY-MM-DD")))
-content = "目前，田间的小麦已进入拔节期，植株整体长势良好。根系发达，主茎粗壮且叶片厚实，呈现出深绿色，表明养分供应充足。在适当的水肥管理下，田间湿度和土壤墒情得以良好保持，有利于小麦的持续健康生长。杂草防治和病虫害监测也在持续进行，确保作物不受侵害。结合当前的气象条件，已及时调整灌溉计划，以防止水分过多引发的病害。总体来看，小麦生长进度正常，预计将按照预期时间进入下一个生长阶段。"
 
 # Handle different screens
 if st.session_state.current_screen == 'main':
     # Example contents
-    contents = [
-        {
-            "title": "当前表型和环境分析总结",
-            "content": "目前，田间的小麦已进入拔节期，植株整体长势良好。根系发达，主茎粗壮且叶片厚实，呈现出深绿色，表明养分供应充足。在适当的水肥管理下，田间湿度和土壤墒情得以良好保持，有利于小麦的持续健康生长。"
-        },
-        {
-            "title": "生长阶段预测",
-            "content": "根据当前生长情况和历史数据分析，预计小麦将在未来2-3周进入抽穗期。建议密切关注天气变化，适时调整管理措施。"
-        },
-        {
-            "title": "灌溉建议",
-            "content": "当前土壤墒情适中，建议在未来3天内进行一次补充灌溉，以确保拔节期的水分需求。灌溉量建议控制在30-40mm。"
-        }
-    ]
+    # contents = [
+    #     {
+    #         "title": "当前表型和环境分析总结",
+    #         "content": "目前，田间的小麦已进入拔节期，植株整体长势良好。根系发达，主茎粗壮且叶片厚实，呈现出深绿色，表明养分供应充足。在适当的水肥管理下，田间湿度和土壤墒情得以良好保持，有利于小麦的持续健康生长。"
+    #     },
+    #     {
+    #         "title": "生长阶段预测",
+    #         "content": "根据当前生长情况和历史数据分析，预计小麦将在未来2-3周进入抽穗期。建议密切关注天气变化，适时调整管理措施。"
+    #     },
+    #     {
+    #         "title": "灌溉建议",
+    #         "content": "当前土壤墒情适中，建议在未来3天内进行一次补充灌溉，以确保拔节期的水分需求。灌溉量建议控制在30-40mm。"
+    #     }
+    # ]
 
     # Render each content section
-    formatted_date = selected_date.strftime(date_formats.get(st.session_state.get('display_format', "YYYY-MM-DD")))
+
     for idx, content_item in enumerate(contents):
         render_content_section(
-            date_str=formatted_date,
+            date_str=content_item["range"],
             title=content_item["title"],
             content=content_item["content"],
-            show_button=(idx == 0)  # Only show button on first card
+            show_button=True
         )
 
 elif st.session_state.current_screen == 'question':
