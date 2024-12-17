@@ -88,7 +88,7 @@ def render_content_section(date_str, title, content, show_button=True):
 
 # 列表接口
 def list_api(start_date, end_date):
-    url = f"http://39.101.77.102:8000/conclusion/{start_date}/{end_date}"
+    url = f"{st.secrets.LIST_API_URL}{start_date}/{end_date}"
     try:
         response = requests.get(url)
         response.raise_for_status()
