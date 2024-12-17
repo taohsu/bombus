@@ -214,7 +214,7 @@ st.markdown("""
     }
     
     .content-wrapper {
-        margin: 10px 0;
+        margin: 40px 0;
         max-width: 100%;
         padding: 0 !important;
     }
@@ -440,23 +440,64 @@ st.markdown("""
     .card-container {
     }
 
-
+    .fixed-header {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 999;
+        background-color: white;
+        padding: 20px;
+        border-bottom: 1px solid #ddd;
+        height: 75px;
+        display: flex;
+        align-items: center;
+    }
+    
+    /* 定位最外层容器 */
+    .st-key-header_back_button {
+        position: fixed !important;
+        top: 20px !important;
+        left: 20px !important;
+        z-index: 1000000 !important;
+        width: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    
+    /* 定位 stButton 容器 */
+    .st-key-header_back_button .stButton {
+        width: auto !important;
+    }
+    
+    /* 定位按钮本身 */
+    .st-key-header_back_button button[data-testid="stBaseButton-secondary"] {
+        width: auto !important;
+        padding: 8px 16px !important;
+        background-color: #F4F4F4 !important;
+        color: #999999 !important;
+        border: 1px solid #CCCCCC !important;
+        border-radius: 4px !important;
+        font-size: 14px !important;
+        margin: 0 !important;
+        min-width: 0 !important;
+    }
+    
+    /* 定位按钮内的文字容器 */
+    .st-key-header_back_button [data-testid="stMarkdownContainer"] {
+        display: inline-block !important;
+    }
+    
+    /* 定位按钮内的段落 */
+    .st-key-header_back_button [data-testid="stMarkdownContainer"] p {
+        margin: 0 !important;
+        padding: 0 !important;
+        line-height: 1 !important;
+    }
+    
     </style>
 """, unsafe_allow_html=True)
 
-
-if st.session_state.current_screen == 'question':
-    st.markdown('''
-        <script>
-            document.querySelector('body').classList.add('question-page');
-        </script>
-    ''', unsafe_allow_html=True)
-else:
-    st.markdown('''
-        <script>
-            document.querySelector('body').classList.remove('question-page');
-        </script>
-    ''', unsafe_allow_html=True)
 
 
 if st.session_state.current_screen == 'main':
@@ -474,10 +515,7 @@ if st.session_state.current_screen == 'main':
         st.caption("Version 1.0")
 
 
-st.markdown("""
-    <div class="fixed-header">
-    </div>
-""", unsafe_allow_html=True)
+
 
 # 设置date_input默认数值
 today = datetime.datetime.now().date()
@@ -485,6 +523,12 @@ seven_days_ago = today - datetime.timedelta(days=7)
 min_date = datetime.date(2023, 1, 1)
 
 if st.session_state.current_screen == 'main':
+
+    st.markdown("""
+        <div class="fixed-header">
+        </div>
+    """, unsafe_allow_html=True)
+
     selected_date = st.date_input(
         "",
         (seven_days_ago, today),
@@ -500,10 +544,12 @@ if st.session_state.current_screen == 'main':
         contents = list_contents(api_data)
 
 else:
-    # 使用当前时间
-    selected_date = datetime.now().date()
-
-
+    st.markdown("""
+            <div class="fixed-header">
+            </div>
+        """, unsafe_allow_html=True)
+    if st.button("返回", key="header_back_button", on_click=switch_to_main):
+        st.session_state.current_screen = 'main'
 
 
 # content wrapper
@@ -540,8 +586,7 @@ if st.session_state.current_screen == 'main':
 
 elif st.session_state.current_screen == 'question':
     # Add a back button
-    if st.button("返回", on_click=switch_to_main):
-        st.session_state.current_screen = 'main'
+
 
     # chat
     for message in st.session_state.messages:
