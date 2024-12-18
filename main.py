@@ -4,13 +4,14 @@ import requests
 import json
 import datetime
 import uuid
+import pandas as pd
+import matplotlib.pyplot as plt
 
 # Initialize session state for screen management
 if 'current_screen' not in st.session_state:
     st.session_state.current_screen = 'main'
 if "messages" not in st.session_state:
     st.session_state.messages = []
-
 
 # Function to switch screen
 def switch_to_question():
@@ -67,8 +68,12 @@ def llm_api(prompt):
         return None
 
 
-def render_content_section(date_str, title, content, show_button=True):
+def render_content_section(date_str, title, content, data, show_button=True):
     unique_key = str(uuid.uuid4())[:8]
+    # 解析JSON字符串如果它是字符串
+    if isinstance(data, str):
+        data = json.loads(data)
+
     # 卡片容器
     with st.container():
         card_html = f"""
@@ -80,10 +85,45 @@ def render_content_section(date_str, title, content, show_button=True):
         """
         st.markdown(card_html, unsafe_allow_html=True)
 
+        # 创建两列布局来显示图表
+        col1, col2 = st.columns(2)
+
+        # 准备数据
+        if data and isinstance(data, dict):
+            # 准备灌溉数据
+            if 'irrigation' in data:
+                irrigation_data = {
+                    '日期': [item['time'][5:] for item in data['temperature']],  # 只取日期的天数
+                    '灌溉量': [item['value'] for item in data['irrigation']]
+                }
+                with col1:
+                    st.caption('灌溉量')
+                    st.bar_chart(
+                        irrigation_data,
+                        y='灌溉量',
+                        x='日期',
+                        use_container_width=True
+                    )
+
+            # 准备温度数据
+            if 'temperature' in data:
+                temperature_data = {
+                    '日期': [item['time'][5:] for item in data['temperature']],  # 只取日期的天数
+                    '温度变化': [item['value'] for item in data['temperature']]
+                }
+                with col2:
+                    st.caption('气温')
+                    st.line_chart(
+                        temperature_data,
+                        y='温度变化',
+                        x='日期',
+                        use_container_width=True
+                    )
+
         if show_button:
             st.button("向Agromind提问",
                       on_click=switch_to_question,
-                      key=unique_key,  # 使用组合的唯一 key
+                      key=unique_key,
                       use_container_width=True)
 
 # 列表接口
@@ -104,7 +144,8 @@ def list_contents(api_data):
         contents.append({
             "range": item['range'],
             "title": item["title"],
-            "content": item["content"]
+            "content": item["content"],
+            "data": item["data"]
         })
     return contents
 
@@ -358,6 +399,15 @@ st.markdown("""
         border: 1px solid #ddd;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
     }
+    
+    /* Add specific styling for chat messages to ensure they're not affected */
+    [data-testid="stChatMessage"] {
+        margin: 8px 32px !important;
+        padding: 0 !important;
+        background: none !important;
+        border: none !important;
+        box-shadow: none !important;
+    }
 
     @media (min-width: 768px) {
         [data-testid="stVerticalBlock"] > div:has(div.element-container) {
@@ -406,32 +456,7 @@ st.markdown("""
         color: white !important;
         transform: translateY(1px) !important;
     }
-    /* hide sidebar in question page */
-    .question-page [data-testid="stSidebarNav"] {
-        display: none !important;
-    }
 
-    /* hide sidebar entry */
-    .question-page button[kind="header"] {
-        display: none !important;
-    }
-
-    /* hide sidebar */
-    .question-page section[data-testid="stSidebar"] {
-        display: none !important;
-        width: 0px !important;
-        height: 0px !important;
-        margin: 0px !important;
-        padding: 0px !important;
-        opacity: 0 !important;
-        visibility: hidden !important;
-    }
-
-    .question-page .main .block-container {
-        padding-left: 0rem !important;
-        padding-right: 0rem !important;
-        max-width: 100% !important;
-    }
     div[data-testid="stElementContainer"] {
         margin: 0 !important;
         padding: 0 !important;
@@ -515,7 +540,22 @@ if st.session_state.current_screen == 'main':
         st.caption("Version 1.0")
 
 
-
+if st.session_state.current_screen == 'question':
+    st.markdown("""
+        <style>
+        .stApp {
+            background-color: #ffffff !important;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+else:
+    st.markdown("""
+        <style>
+        .stApp {
+            background-color: #F4F4F4 !important;
+        }
+        </style>
+    """, unsafe_allow_html=True)
 
 # 设置date_input默认数值
 today = datetime.datetime.now().date()
@@ -581,12 +621,12 @@ if st.session_state.current_screen == 'main':
             date_str=content_item["range"],
             title=content_item["title"],
             content=content_item["content"],
+            data=content_item["data"],
             show_button=True
         )
 
 elif st.session_state.current_screen == 'question':
     # Add a back button
-
 
     # chat
     for message in st.session_state.messages:
