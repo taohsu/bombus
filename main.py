@@ -4,8 +4,6 @@ import requests
 import json
 import datetime
 import uuid
-import pandas as pd
-import matplotlib.pyplot as plt
 
 # Initialize session state for screen management
 if 'current_screen' not in st.session_state:
