@@ -19,60 +19,41 @@ def switch_to_question():
 def switch_to_main():
     st.session_state.current_screen = 'main'
 
-
-# 提取llm回答
-def extract_final_answer(response):
-    """
-    提取Final Answer
-
-    Args:
-        response (dict): 提取JSON数据
-
-    Returns:
-        str: Final Answer后的内容
-    """
-    try:
-        content = response['choices'][0]['message']['content']
-        final_answer_marker = "\nFinal Answer: "
-        start_index = content.find(final_answer_marker)
-
-        if start_index != -1:
-            extracted_content = content[start_index + len(final_answer_marker):]
-            return extracted_content.strip()
-        return "未找到Final Answer"
-    except (KeyError, IndexError) as e:
-        return f"提取错误: {str(e)}"
-
-
-# 接口
+# API for LLM
 def llm_api(prompt):
     """
-    调用API
+    call API & get response
     """
-    url = st.secrets.API_URL
-    headers = {
-        'Content-Type': 'application/json'
-    }
-    payload = {
-        'prompt': prompt
+    url = "http://39.101.77.102:8000/chat"
+
+    # prompt data
+    prompts = [{
+        "role": "user",
+        "content": prompt
+    }]
+
+    # create request
+    files = {
+        'prompts': (None, json.dumps(prompts))
     }
 
     try:
-        response = requests.post(url, headers=headers, json=payload)
+        response = requests.post(url, files=files)
         response.raise_for_status()
-        return response.json()
+        response.encoding = 'utf-8'
+        return response.text
+
     except requests.exceptions.RequestException as e:
-        st.error(f"请求出错: {e}")
+        st.error(f"LLM API请求出错: {e}")
         return None
 
 
-def render_content_section(date_str, title, content, data, show_button=True):
+def render_list_item(date_str, title, content, data, show_button=True):
     unique_key = str(uuid.uuid4())[:8]
-    # 解析JSON字符串如果它是字符串
     if isinstance(data, str):
         data = json.loads(data)
 
-    # 卡片容器
+    # card
     with st.container():
         card_html = f"""
         <div class="card-container">
@@ -83,12 +64,12 @@ def render_content_section(date_str, title, content, data, show_button=True):
         """
         st.markdown(card_html, unsafe_allow_html=True)
 
-        # 创建两列布局来显示图表
+        # display chart
         col1, col2 = st.columns(2)
 
-        # 准备数据
+        # chart data
         if data and isinstance(data, dict):
-            # 准备灌溉数据
+            # chart 1
             if 'irrigation' in data:
                 irrigation_data = {
                     '日期': [item['time'][5:] for item in data['temperature']],  # 只取日期的天数
@@ -103,7 +84,7 @@ def render_content_section(date_str, title, content, data, show_button=True):
                         use_container_width=True
                     )
 
-            # 准备温度数据
+            # chart 2
             if 'temperature' in data:
                 temperature_data = {
                     '日期': [item['time'][5:] for item in data['temperature']],  # 只取日期的天数
@@ -124,7 +105,7 @@ def render_content_section(date_str, title, content, data, show_button=True):
                       key=unique_key,
                       use_container_width=True)
 
-# 列表接口
+# API for list
 def list_api(start_date, end_date):
     url = f"{st.secrets.LIST_API_URL}{start_date}/{end_date}"
     try:
@@ -132,11 +113,11 @@ def list_api(start_date, end_date):
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:
-        st.error(f"API请求错误: {e}")
+        st.error(f"列表API请求错误: {e}")
         return None
 
+# list content
 contents = []
-# 列表内容
 def list_contents(api_data):
     for item in api_data:
         contents.append({
@@ -148,7 +129,7 @@ def list_contents(api_data):
     return contents
 
 
-# page layout
+# streamlit page layout
 st.set_page_config(layout="wide")
 
 # CSS
@@ -522,7 +503,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-
+# side bar
 if st.session_state.current_screen == 'main':
     with st.sidebar:
         st.image("logo.png", use_container_width=True)
@@ -538,6 +519,7 @@ if st.session_state.current_screen == 'main':
         st.caption("Version 1.0")
 
 
+# switch pages style
 if st.session_state.current_screen == 'question':
     st.markdown("""
         <style>
@@ -555,11 +537,12 @@ else:
         </style>
     """, unsafe_allow_html=True)
 
-# 设置date_input默认数值
+# initiate date picker
 today = datetime.datetime.now().date()
 seven_days_ago = today - datetime.timedelta(days=7)
 min_date = datetime.date(2023, 1, 1)
 
+# switch page header
 if st.session_state.current_screen == 'main':
 
     st.markdown("""
@@ -594,28 +577,12 @@ else:
 st.markdown('<div class="content-wrapper">', unsafe_allow_html=True)
 
 
-# Handle different screens
+# switch page contents
 if st.session_state.current_screen == 'main':
-    # Example contents
-    # contents = [
-    #     {
-    #         "title": "当前表型和环境分析总结",
-    #         "content": "目前，田间的小麦已进入拔节期，植株整体长势良好。根系发达，主茎粗壮且叶片厚实，呈现出深绿色，表明养分供应充足。在适当的水肥管理下，田间湿度和土壤墒情得以良好保持，有利于小麦的持续健康生长。"
-    #     },
-    #     {
-    #         "title": "生长阶段预测",
-    #         "content": "根据当前生长情况和历史数据分析，预计小麦将在未来2-3周进入抽穗期。建议密切关注天气变化，适时调整管理措施。"
-    #     },
-    #     {
-    #         "title": "灌溉建议",
-    #         "content": "当前土壤墒情适中，建议在未来3天内进行一次补充灌溉，以确保拔节期的水分需求。灌溉量建议控制在30-40mm。"
-    #     }
-    # ]
 
     # Render each content section
-
     for idx, content_item in enumerate(contents):
-        render_content_section(
+        render_list_item(
             date_str=content_item["range"],
             title=content_item["title"],
             content=content_item["content"],
@@ -624,11 +591,10 @@ if st.session_state.current_screen == 'main':
         )
 
 elif st.session_state.current_screen == 'question':
-    # Add a back button
-
     # chat
     for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
+        with st.chat_message(message["role"], avatar=st.secrets.USER_AVATAR if message[
+                                                                                   "role"] == "user" else st.secrets.ASSISTANT_AVATAR):
             st.markdown(message["content"])
 
     # user query
@@ -637,18 +603,22 @@ elif st.session_state.current_screen == 'question':
         st.session_state.messages.append({"role": "user", "content": user_query})
 
         # user message display
-        with st.chat_message("user"):
+        with st.chat_message("user", avatar=st.secrets.USER_AVATAR):
             st.markdown(user_query)
 
-        # AI message
-        with st.chat_message("assistant"):
+        with st.chat_message("assistant", avatar=st.secrets.ASSISTANT_AVATAR):
+            # Show loading message while waiting for response
+            message_placeholder = st.empty()
+            message_placeholder.markdown("<span style='color: #bbbbbb'>*...  思考中  ...*</span>", unsafe_allow_html=True)
+
             response = llm_api(user_query)
             if response:
-                llm_response = extract_final_answer(response)
-                st.markdown(llm_response)
+                # Replace loading message with actual response
+                message_placeholder.markdown(response)
                 # add AI message to session_state
-                st.session_state.messages.append({"role": "assistant", "content": llm_response})
+                st.session_state.messages.append({"role": "assistant", "content": response})
 
+# close streamlit
 if __name__ == "__main__":
     # Close content-wrapper div
     st.markdown('</div>', unsafe_allow_html=True)
