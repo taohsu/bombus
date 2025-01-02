@@ -10,45 +10,88 @@ if 'current_screen' not in st.session_state:
     st.session_state.current_screen = 'main'
 if "messages" not in st.session_state:
     st.session_state.messages = []
+if "selected_item_id" not in st.session_state:
+    st.session_state.selected_item_id = None
+if "selected_start_date" not in st.session_state:
+    st.session_state.selected_start_date = datetime.datetime.now().date() - datetime.timedelta(days=7)
+if "selected_end_date" not in st.session_state:
+    st.session_state.selected_end_date = datetime.datetime.now().date()
 
 # Function to switch screen
-def switch_to_question():
+def switch_to_question(item_id):
     st.session_state.current_screen = 'question'
+    st.session_state.selected_item_id = item_id
+
+    # clear st.session history
+    st.session_state.messages = []
+
+    # get chat history from server
+    history = get_chat_history(item_id)
+    if history:
+        # add history to session_state.messages
+        for msg in history:
+            st.session_state.messages.append({
+                "role": msg["role"],
+                "content": msg["content"]
+            })
 
 
 def switch_to_main():
     st.session_state.current_screen = 'main'
+    st.session_state.selected_item_id = None
 
-# API for LLM
-def llm_api(prompt):
+# API for chat history
+def get_chat_history(item_id):
     """
-    call API & get response
+    get chat history by ID
     """
-    url = "http://39.101.77.102:8000/chat"
+    url = f"{st.secrets.NEW_NEW_LLM_API_URL}/{item_id}/chat"
 
-    # prompt data
-    prompts = [{
-        "role": "user",
-        "content": prompt
-    }]
+    data = {
+        "prompt": ""
+    }
 
-    # create request
-    files = {
-        'prompts': (None, json.dumps(prompts))
+    headers = {
+        'Content-Type': 'application/json'
     }
 
     try:
-        response = requests.post(url, files=files)
+        response = requests.post(url, json=data, headers=headers)
         response.raise_for_status()
         response.encoding = 'utf-8'
-        return response.text
+        return response.json()  # 返回历史记录列表
+    except requests.exceptions.RequestException as e:
+        st.error(f"获取聊天历史记录失败: {e}")
+        return None
+# API for LLM
+def llm_api(prompt):
+    """
+    call API & get response by ID
+    """
+    url = f"{st.secrets.NEW_NEW_LLM_API_URL}/{st.session_state.selected_item_id}/chat"
+
+    data = {
+        "prompt": prompt
+    }
+
+    # create request
+    headers = {
+        'Content-Type': 'application/json'
+    }
+
+    try:
+        response = requests.post(url, json=data, headers=headers)
+        response.raise_for_status()
+        response.encoding = 'utf-8'  # Keep the encoding setting
+        response_data = response.json()  # Parse JSON response
+        return response_data["response"]  # Return the response text
 
     except requests.exceptions.RequestException as e:
         st.error(f"LLM API请求出错: {e}")
         return None
 
 
-def render_list_item(date_str, title, content, data, show_button=True):
+def render_list_item(date_str, title, content, data, item_id, show_button=True):
     unique_key = str(uuid.uuid4())[:8]
     if isinstance(data, str):
         data = json.loads(data)
@@ -72,7 +115,7 @@ def render_list_item(date_str, title, content, data, show_button=True):
             # chart 1
             if 'irrigation' in data:
                 irrigation_data = {
-                    '日期': [item['time'][5:] for item in data['temperature']],  # 只取日期的天数
+                    '日期': [item['time'][5:] for item in data['irrigation']],  # 只取日期的天数
                     '灌溉量': [item['value'] for item in data['irrigation']]
                 }
                 with col1:
@@ -85,16 +128,16 @@ def render_list_item(date_str, title, content, data, show_button=True):
                     )
 
             # chart 2
-            if 'temperature' in data:
+            if 'tail' in data:
                 temperature_data = {
-                    '日期': [item['time'][5:] for item in data['temperature']],  # 只取日期的天数
-                    '温度变化': [item['value'] for item in data['temperature']]
+                    '日期': [item['time'][5:] for item in data['tail']],  # 只取日期的天数
+                    '尾水量': [item['value'] for item in data['tail']]
                 }
                 with col2:
-                    st.caption('气温')
+                    st.caption('尾水量')
                     st.line_chart(
                         temperature_data,
-                        y='温度变化',
+                        y='尾水量',
                         x='日期',
                         use_container_width=True
                     )
@@ -102,7 +145,8 @@ def render_list_item(date_str, title, content, data, show_button=True):
         if show_button:
             st.button("向Agromind提问",
                       on_click=switch_to_question,
-                      key=unique_key,
+                      args=(item_id,),
+                      key=item_id,
                       use_container_width=True)
 
 # API for list
@@ -124,6 +168,7 @@ def list_contents(api_data):
             "range": item['range'],
             "title": item["title"],
             "content": item["content"],
+            "id": item['id'],
             "data": item["data"]
         })
     return contents
@@ -552,12 +597,14 @@ if st.session_state.current_screen == 'main':
 
     selected_date = st.date_input(
         "",
-        (seven_days_ago, today),
+        (st.session_state.selected_start_date, st.session_state.selected_end_date),
         min_value=min_date,
         max_value=today,
         format="YYYY.MM.DD",
     )
     if isinstance(selected_date, tuple) and len(selected_date) == 2:
+        st.session_state.selected_start_date = selected_date[0]
+        st.session_state.selected_end_date = selected_date[1]
         selected_start_date = f"{selected_date[0].year}-{selected_date[0].month}-{selected_date[0].day}"
         selected_end_date = f"{selected_date[1].year}-{selected_date[1].month}-{selected_date[1].day}"
 
@@ -581,12 +628,13 @@ st.markdown('<div class="content-wrapper">', unsafe_allow_html=True)
 if st.session_state.current_screen == 'main':
 
     # Render each content section
-    for idx, content_item in enumerate(contents):
+    for content_item in contents:
         render_list_item(
             date_str=content_item["range"],
             title=content_item["title"],
             content=content_item["content"],
             data=content_item["data"],
+            item_id=content_item["id"],
             show_button=True
         )
 
